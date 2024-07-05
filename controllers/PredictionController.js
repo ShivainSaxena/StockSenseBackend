@@ -11,11 +11,9 @@ const PredictTickerPrice = async (req, res) => {
   let tomorrowPrice;
 
   try {
-    const stdout = execFileSync(
-      "C:/Users/ssaxe/AppData/Local/Programs/Python/Python311/python.exe",
-      ["c:/Users/ssaxe/Node/stockanalysis/stock.py", symbol],
-      { encoding: "utf8" }
-    );
+    const stdout = execFileSync("python", ["stock.py", symbol], {
+      encoding: "utf8",
+    });
     tomorrowPrice = parseFloat(parseFloat(stdout.trim()).toFixed(2));
   } catch (error) {
     return res
