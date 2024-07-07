@@ -8,7 +8,7 @@ symbol = sys.argv[1]
 
 # Fetch the data
 apl = yf.Ticker(symbol)
-df = apl.history(period="1wk")
+df = apl.history(period="5d")
 
 # Select date and price
 df = df[['Close']]
