@@ -1,19 +1,18 @@
 require("dotenv").config();
 const express = require("express");
 const { MongoClient } = require("mongodb");
-const cors = require("cors");
 const app = express();
 const StockInfoRoutes = require("./routes/StockInfoRoutes");
 const UserAuthRoutes = require("./routes/AuthRoutes");
 const DashboardRoutes = require("./routes/DashboardRoutes");
 const PredictionRoutes = require("./routes/PredictionRoutes");
+const { requestLogger } = require("./middleware/requestLogger");
 
 const PORT = process.env.PORT || 4000;
 
-// Use CORS middleware
-app.use(cors());
-
 app.use(express.json());
+
+app.use(requestLogger);
 
 // Stock Information Routes
 app.use("/api/stock", StockInfoRoutes);

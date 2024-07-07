@@ -1,5 +1,6 @@
 const fetch = require("node-fetch");
 const { parse, format } = require("date-fns");
+const yahooFinance = require("yahoo-finance2").default;
 
 const getDashboardStocksData = async (req, res) => {
   const db = req.app.locals.db;
@@ -11,28 +12,12 @@ const getDashboardStocksData = async (req, res) => {
     return res.status(404).json({ error: "No dashboard found" });
   }
   try {
-    const options = {
-      method: "GET",
-      headers: {
-        "X-RapidAPI-Key": "cc7b9ca99cmshe131384e2014737p1761d9jsn5f05d5cdf24a",
-        "X-RapidAPI-Host": "twelve-data1.p.rapidapi.com",
-      },
-    };
-
     const stockDataPromises = dashboard.dash.map((obj) => {
-      let url;
       if (obj.type === "widget") {
-        url = `https://twelve-data1.p.rapidapi.com/quote?symbol=${obj.symbol}&interval=1day&outputsize=30&format=json`;
+        return getWidgetData(obj.symbol);
       } else if (obj.type === "graph") {
-        url = `https://twelve-data1.p.rapidapi.com/time_series?symbol=${obj.symbol}&interval=1h&outputsize=40&format=json`;
+        return getHistoricalData(obj.symbol);
       }
-
-      return fetch(url, options).then((response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to fetch data for ${obj.symbol}`);
-        }
-        return response.json();
-      });
     });
 
     const stockDataArray = await Promise.all(stockDataPromises);
@@ -42,36 +27,61 @@ const getDashboardStocksData = async (req, res) => {
 
       if (obj.type === "widget") {
         return {
-          symbol: stockData.symbol,
-          name: stockData.name,
-          close: stockData.close,
-          change: stockData.change,
-          percent_change: stockData.percent_change,
+          ...stockData,
           type: obj.type,
         };
       } else if (obj.type === "graph") {
         return {
-          symbol: stockData.meta.symbol,
-          interval: stockData.meta.interval,
-          data: stockData.values.reverse().map((obj) => {
-            return {
-              close: parseFloat(obj.close).toFixed(2),
-              datetime: format(
-                parse(obj.datetime, "yyyy-MM-dd HH:mm:ss", new Date()),
-                "MMMM d, h:mm a"
-              ),
-            };
-          }),
+          ...stockData,
           type: obj.type,
         };
       }
     });
-
     return res.status(200).json(aggregatedData);
   } catch (error) {
     console.error("Error fetching stock data:", error);
     return res.status(500).json({ error: "Failed to fetch stock data" });
   }
+};
+
+const getWidgetData = async (ticker) => {
+  const results = await yahooFinance.quote(ticker);
+  const rObj = {
+    symbol: results.symbol,
+    name: results.shortName,
+    close: results.regularMarketPrice,
+    change: results.regularMarketChange,
+    percent_change: results.regularMarketChangePercent,
+  };
+
+  return rObj;
+};
+
+const getHistoricalData = async (ticker) => {
+  const endDate = new Date(); // Current date
+  const startDate = new Date();
+  startDate.setDate(endDate.getDate() - 7); // Date 7 days ago
+
+  const queryOptions = {
+    period1: startDate.toISOString(), // Start date
+    period2: endDate.toISOString(), // End date
+    interval: "90m", // 1 hour 30 min interval
+  };
+
+  const result = await yahooFinance.chart(ticker, queryOptions);
+
+  const quotes = result.quotes;
+  const formattedData = quotes.map((quote) => ({
+    datetime: format(new Date(quote.date), "MMMM d, h:mm a"),
+    close: parseFloat(quote.close.toFixed(2)),
+  }));
+  const rObj = {
+    data: formattedData,
+    interval: "90m",
+    symbol: result.meta.symbol,
+  };
+
+  return rObj;
 };
 
 const addDashboardStock = async (req, res) => {
@@ -92,11 +102,6 @@ const addDashboardStock = async (req, res) => {
   const dash = await db.collection("dashboards").findOne({ email: req.email });
 
   if (dash) {
-    if (dash.dash.length >= 8) {
-      return res
-        .status(507)
-        .json({ error: "Limit of 8 stocks in dashboard reached" });
-    }
     const update = {
       $push: { dash: { symbol: ticker, type } },
     };

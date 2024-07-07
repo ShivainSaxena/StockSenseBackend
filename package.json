@@ -20,6 +20,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.6.1",
     "node-fetch": "^2.7.0",
-    "nodemon": "^3.1.4"
+    "nodemon": "^3.1.4",
+    "pino": "^9.2.0",
+    "yahoo-finance2": "^2.11.3"
   }
 }
