@@ -36,6 +36,12 @@ const PredictTickerPrice = async (req, res) => {
         if (error) {
           return reject(error);
         }
+
+        if (!data || data.length === 0) {
+          return res
+            .status(404)
+            .json({ error: "No recommendation trends data found" });
+        }
         data[0].period = format(parseISO(data[0].period), "MMMM yyyy");
 
         resolve(data[0]);
